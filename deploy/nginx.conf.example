@@ -1,0 +1,69 @@
+# ============================================================
+# PMD Nginx 站点配置示例（Debian/Ubuntu）
+# 使用方法：
+#   1. 将项目上传至 /var/www/PMD
+#   2. 复制本文件为 /etc/nginx/sites-available/pmd
+#   3. 修改 server_name 与 php-fpm 版本路径
+#   4. ln -s /etc/nginx/sites-available/pmd /etc/nginx/sites-enabled/
+#   5. nginx -t && systemctl reload nginx
+# ============================================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name your-domain.example.com;   # ← 修改为你的域名或 IP
+
+    root /var/www/PMD/public;              # ← 网站根目录指向 public/
+    index index.php;
+
+    client_max_body_size 20m;              # 允许上传最大 20MB
+
+    # 静态资源缓存
+    location ~* \.(css|js|png|jpg|jpeg|gif|webp|svg|ico)$ {
+        expires 7d;
+        add_header Cache-Control "public";
+        try_files $uri =404;
+    }
+
+    # 上传的 LOGO 图片
+    location /uploads/ {
+        try_files $uri =404;
+    }
+
+    # 下载模板文件（templates/ 目录可选开放；如需关闭请删除本段）
+    location /templates/ {
+        try_files $uri =404;
+    }
+
+    # 前端路由与 API 统一入口
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP 处理（按你的 PHP 版本调整 socket 路径，如 php8.1-fpm / php8.2-fpm）
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;   # ← 修改为你的 PHP-FPM 版本
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    # 禁止访问项目内部目录
+    location ~ ^/(app|sql|tools|docs|deploy)/ {
+        deny all;
+    }
+
+    # 禁止执行上传目录中的脚本
+    location ~* ^/uploads/.*\.(php|php5|phtml)$ {
+        deny all;
+    }
+}
+
+# ---- 可选：HTTPS（使用 certbot） ----
+# server {
+#     listen 443 ssl http2;
+#     server_name your-domain.example.com;
+#     ssl_certificate     /etc/letsencrypt/live/your-domain.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/your-domain.example.com/privkey.pem;
+#     ... 同上 location 配置 ...
+# }

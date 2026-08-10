@@ -1,0 +1,126 @@
+# PMD · 个人物品管理数据库
+
+一套可部署到服务器（Linux/Debian、macOS arm 均支持）的个人物品管理系统。
+技术栈：**Nginx + MySQL + PHP（8.1+）+ 原生 JavaScript**，零第三方依赖、无需构建步骤、无需 Composer，部署体积约 **10~30MB**。
+
+> 所有 Excel 读写均由内置轻量 `app/lib/xlsx.php` 完成，服务器不需要安装任何外部库。
+
+---
+
+## 一、功能总览
+
+| 入口 | 功能 |
+|---|---|
+| 物品总览 | 全库检索（任意字段）、位置/类别筛选、多选批量修改、Excel/CSV 导出、文件导入 |
+| 物资交换 | 查询 → 定义新位置 → 输出作业单 → 确认 → 应用修改；支持上传作业单直达应用 |
+| 物资采购 | 定义区域 → 检索折旧<20% 物品 → 选品/补选 → 确认新增 → 输出欲购清单 → 应用 |
+| 物资借还 | 借出（位置→LTO+备注借用人）→ 归还（更新余量/折旧/位置）→ 历史记录 |
+| 新增物品 | 逐项录入 / 批量新增 / 文件导入（.xlsx / .csv / .sql） |
+| 设置 | 网站标题、LOGO、登录 PIN、主题色、语言、类别代码、位置代码 |
+
+## 二、目录结构
+
+```
+PMD/
+├── public/                  # 网站根目录（Nginx 指向这里）
+│   ├── index.php            # 前端入口 / API 路由
+│   ├── install.php          # 网页安装向导（部署完成后建议删除）
+│   ├── assets/              # css / js
+│   └── uploads/logo/        # 上传的 LOGO
+├── app/
+│   ├── config.sample.php    # 配置示例（安装向导生成 config.php）
+│   ├── api.php              # 全部 API 端点
+│   ├── lib/                 # 业务与工具类
+│   ├── lang/zh-CN.php       # 简体中文字符串
+│   └── storage/             # 临时文件/日志（自动创建）
+├── sql/
+│   ├── init.sql             # 建库建表 + 默认数据（R/N/H/B 均覆盖全部 16 种子类别）
+│   └── import_template.sql  # SQL 数据导入模板
+├── templates/               # Excel/CSV/SQL 模板（可直接下载使用）
+├── tools/
+│   ├── generate_templates.php  # 重新生成模板的脚本
+│   ├── seed.php                # PHP/PDO 初始化脚本（防中文乱码，本地部署/服务器均可用）
+│   ├── repair_charset.php      # 全库中文乱码修复工具（升级旧版本用）
+│   ├── local_deploy.sh         # 本机一键部署（默认端口 5019）
+│   └── smoke_test.php          # 冒烟测试
+├── deploy/nginx.conf.example    # Nginx 站点配置示例
+├── docs/使用说明.md          # 完整部署与使用手册
+└── readme.md                # 本文件
+```
+
+## 三、部署（快速开始）
+
+详细步骤见 `docs/使用说明.md`，要点：
+
+- **本机（macOS/Linux）**：`php -S 127.0.0.1:5019 -t public public/index.php`，浏览器访问 `http://127.0.0.1:5019`，按网页向导完成安装（填数据库信息 + 设置 PIN）。
+  - 也可一键部署：`bash tools/local_deploy.sh`（默认端口 **5019**，可传 PIN 与端口，如 `bash tools/local_deploy.sh 123456 8080`）。
+- **服务器（Debian）**：安装 Nginx / PHP-FPM / MySQL 及扩展 `php-mysql php-zip php-mbstring` → 上传项目 → 配置 Nginx（见 `deploy/nginx.conf.example`）→ 访问域名进入安装向导。
+- 安装完成后**建议删除 `public/install.php`**。
+
+## 四、序列号规则
+
+- 共 6 位：**3 位字母 + 3 位数字**，如 `NDZ121`。
+- 第 1 位字母 = 母类别：`R` 容器、`N` 耐用品、`H` 消耗品、`B` 已报废。
+- 第 2~3 位字母 = 子类别：`BG`办公 `QJ`清洁 `RH`日化 `SN`收纳 `WJ`五金 `DZ`电子 `FS`服饰 `YP`药品 `SP`食品 `CJ`餐厨 `YS`印刷 `GH`个护 `ZS`装饰 `YD`运动 `AQ`安全 `FZ`纺织 等（可在设置中扩展）。
+- 预置类别中，`R`（容器）与 `N/H/B` 一样覆盖全部 16 种子类别；**导入数据遇到不存在的类别组合时，系统会自动创建**（名称取自预置表，未收录的新代码以代码本身命名，可在 设置→类别代码管理 中修改），无需手动去设置里添加。
+- 后 3 位数字：前缀不同可重复，前缀相同不可重复；新增时自动递增（满 999 后自动占用最小空闲组合）。
+- 类别变更（如标记报废）时序列号自动重新生成，引用方（容器字段）同步更新。
+
+## 五、多语言化方法（接口已就绪）
+
+系统当前仅内置**简体中文**，但已预留完整的多语言接口，新增语言只需 3 步：
+
+1. **新建语言文件**：复制 `app/lang/zh-CN.php` 为 `app/lang/en-US.php`（文件名 = 语言代码），翻译数组中的字符串值，**键名保持不变**。
+2. **注册语言**：编辑 `app/lib/i18n.php`，在 `I18n::LANGUAGES` 常量中追加一项：
+   ```php
+   public const LANGUAGES = [
+       'zh-CN' => '简体中文',
+       'en-US' => 'English',   // ← 新增
+   ];
+   ```
+3. **切换生效**：保存后，设置页 → 常规设置 → 语言下拉框会自动出现新选项，选择即全站切换（前端通过 `public_status` 接口获取 `strings`，后端通过 `I18n::t()` / `t()` / `tf()` 取词）。
+
+补充说明：
+- 前端取词统一走 `t('键名')`，翻译文件里可用 `{token}` 做占位符（如 `'{serial} 已存在'`），后端对应 `tf('键名', ['serial' => ...])`。
+- 界面中硬编码的中文提示（个别校验消息）建议在翻译时一并移入语言文件。
+- 日期格式与数字格式目前为 `yyyy-mm-dd` / 通用格式，如需随语言变化，可在语言文件中增加 `date.format`、`number.decimal` 等约定键，并在前端格式化函数中读取。
+
+## 六、备份与迁移
+
+- 全库导出：物品总览页 → 导出 Excel/CSV。
+- 数据库备份：`mysqldump -u <user> -p pmd > pmd_backup.sql`，恢复：`mysql -u <user> -p pmd < pmd_backup.sql`。
+- 项目整体迁移：拷贝 `PMD/` 目录 + 数据库导出即可；`app/config.php` 需按新环境重新生成（删除后访问 `/install.php`）。
+
+## 七、常见问题
+
+- **导入 Excel 中文乱码**：请确认文件另存为 UTF-8；CSV 若来自旧版 Excel（GBK 编码）系统会自动转换。
+- **升级旧版本后类别/位置中文乱码**：旧版部署若曾用 mysql CLI 导入导致「二次编码」乱码，运行 `php tools/repair_charset.php` 自动修复。
+- **安装向导提示缺扩展**：`sudo apt install php8.2-mysql php8.2-zip php8.2-mbstring`（版本按实际调整）。
+- **忘记 PIN**：删除 `app/config.php` 后访问 `/install.php` 可重置（数据库数据保留）。
+
+## 八、更新日志
+
+### v1.2.1（2026-08-08）
+- **季度消耗量也支持小数**：`quarterly_consumption` 列同步改为 `DECIMAL(12,2)`；校验、前端输入均同步。旧库升级需 `ALTER TABLE items MODIFY quarterly_consumption DECIMAL(12,2) NOT NULL DEFAULT 0`。
+
+### v1.2.0（2026-08-08）
+- **余量支持小数**：`quantity` 列从 `INT` 改为 `DECIMAL(12,2)`；新增 `is_non_negative_num()` 校验；导入/新增/归还均支持小数余量（如 2.5）。旧库升级需执行 `ALTER TABLE items MODIFY quantity DECIMAL(12,2) NOT NULL DEFAULT 0`。
+- **借还页面平铺**：取消选项卡，借出/归还/借还记录三节同页展开，操作更直观。
+- **分页正常**：物品 > 每页条数时显示前后翻页按钮（已 Playwright 实测：101 条数据 4 页翻页正常）。
+
+### v1.1.2（2026-08-08）
+- **修复（致命）**：物品总览/交换/采购页完全无法显示任何条目。根因：JSON API 返回的数字字段（如 `quantity: 3`）在 JS 中是 `number` 类型，`el()` 子节点处理仅对 `string` 做 `createTextNode`，数字直接传给 `appendChild` → `"is not of type 'Node'"` → 渲染崩溃。已在 Playwright 无头浏览器实测确认：修复后物品总览 30 条正常显示、筛选/重置均正常、交换/采购检索均正常。
+
+### v1.1.1（2026-08-08）
+- **修复（重要）**：物品总览应用筛选后、采购/交换页检索后列表为空。根因：前端 `el()` 工具函数把布尔属性 `selected:false`/`checked:false` 也写入 DOM（属性存在即生效），导致所有筛选下拉框默认选中**最后一个**选项、复选框默认勾选，点击搜索即按错误条件过滤。已修正为 `false` 不设置属性、`true` 设为空属性。
+- **物品总览**：默认每页 **30** 条；筛选项选择"请选择"或"全部"代表该维度不筛选，显示全部符合条件条目。
+- **位置**：系统预设 13 个位置代码——`FA`通辽住所办公桌 `FB`通辽住所床 `FC`通辽住所衣柜 `FD`通辽住所储物架 `FE`通辽住所其他 `TL`通辽市其他 `CZT`长株潭区域其他 `NJ`南京市其他 `SZ`苏州市其他 `SH`上海市其他 `SY`沈阳市其他 `WH`武汉市其他 `LTO`借出及在途；位置代码仍可新增/修改。
+
+### v1.1.0（2026-08-08）
+- **修复**：默认子类别名称乱码问题——初始化改由 PHP/PDO（charset=utf8mb4）执行，杜绝 mysql CLI 字符集导致的 UTF-8 二次编码；新增 `tools/seed.php`（防乱码初始化）与 `tools/repair_charset.php`（旧库乱码一键修复）。
+- **类别**：预置类别中母类别 `R`（容器）现可与其他所有 16 种子类别组合。
+- **导入**：导入数据（.xlsx/.csv/.sql、采购清单）包含不存在的类别组合时自动创建，无需再到设置中手动添加。
+- **部署**：本地部署默认端口改为 **5019**（`local_deploy.sh` 可用参数/环境变量 `PMD_PORT` 覆盖）。
+- 含此前本地部署修复：`/api.php` 垫片、PHP 内置服务器静态文件放行、mysql CLI utf8mb4 参数、PHP 8.5 `fgetcsv` 兼容、物品更新改为合并式更新。
+
+版本：1.2.1

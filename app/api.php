@@ -133,6 +133,7 @@ try {
                 'duplicates' => $preview['duplicates'],
                 'invalid' => $preview['invalid'],
                 'auto_categories' => $preview['auto_categories'],
+                'auto_hygiene' => $preview['auto_hygiene'],
                 'rows' => array_slice($preview['rows'], 0, 500),
                 'has_duplicates' => $preview['duplicates'] > 0,
             ]);
@@ -158,6 +159,7 @@ try {
                 'duplicates' => $preview['duplicates'],
                 'invalid' => $preview['invalid'],
                 'auto_categories' => $preview['auto_categories'],
+                'auto_hygiene' => $preview['auto_hygiene'],
                 'rows' => array_slice($preview['rows'], 0, 500),
                 'has_duplicates' => $preview['duplicates'] > 0,
             ]);
@@ -211,7 +213,7 @@ try {
             $rows = Templates::mapRows($table, Templates::PURCHASE_HEADERS);
             $preview = Importer::previewPurchase($rows);
             $token = Workflows::draftSave('import_purchase', $preview['rows']);
-            json_ok(['token' => $token, 'file' => $up['orig_name'], 'valid' => $preview['valid'], 'auto_categories' => $preview['auto_categories'], 'rows' => $preview['rows']]);
+            json_ok(['token' => $token, 'file' => $up['orig_name'], 'valid' => $preview['valid'], 'auto_categories' => $preview['auto_categories'], 'auto_hygiene' => $preview['auto_hygiene'], 'rows' => $preview['rows']]);
             break;
         }
 
@@ -280,6 +282,7 @@ try {
                     $r['main_category'], $r['sub_category'], $r['location_code'],
                     $r['unit'], $r['quantity'], $r['purchase_qty'],
                     $r['purchase_price'] ?? '', $r['notes'] ?? '',
+                    $r['hygiene_level'] ?? '',
                 ];
             }
             export_table($rows, 'xlsx', 'PMD物资采购欲购清单_' . date('Ymd_His'));
@@ -448,6 +451,56 @@ try {
             break;
         }
 
+        // ---------------- 卫生等级 ----------------
+        case 'hygiene.list':
+            Auth::requireLogin();
+            json_ok(Hygiene::all());
+            break;
+
+        case 'hygiene.create': {
+            Auth::requireLogin();
+            $code = strtoupper(clean_str($body['code'] ?? ''));
+            $name = clean_str($body['name'] ?? '');
+            if (!Hygiene::valid($code)) {
+                json_fail('卫生等级代码应为单个大写字母（如 A/B/C/D）');
+            }
+            if ($name === '') {
+                json_fail('卫生等级名称不能为空');
+            }
+            if (Hygiene::exists($code)) {
+                json_fail(t('settings.duplicate'));
+            }
+            DB::q('INSERT INTO hygiene_levels (code, name, sort_order) VALUES (?,?,?)', [$code, $name, (int)($body['sort_order'] ?? 0)]);
+            json_ok();
+            break;
+        }
+
+        case 'hygiene.update': {
+            Auth::requireLogin();
+            $code = strtoupper(clean_str($body['code'] ?? ''));
+            if (!Hygiene::exists($code)) {
+                json_fail('卫生等级不存在：' . $code);
+            }
+            $name = clean_str($body['name'] ?? '');
+            if ($name === '') {
+                json_fail('卫生等级名称不能为空');
+            }
+            DB::q('UPDATE hygiene_levels SET name = ?, sort_order = ? WHERE code = ?', [$name, (int)($body['sort_order'] ?? 0), $code]);
+            json_ok();
+            break;
+        }
+
+        case 'hygiene.delete': {
+            Auth::requireLogin();
+            $code = strtoupper(clean_str($body['code'] ?? ''));
+            if (!Hygiene::exists($code)) {
+                json_fail('卫生等级不存在：' . $code);
+            }
+            DB::exec('DELETE FROM hygiene_levels WHERE code = ?', [$code]);
+            json_ok();
+            break;
+        }
+
         // ---------------- 设置 ----------------
         case 'settings.get':
             Auth::requireLogin();
@@ -552,6 +605,12 @@ function public_status(bool $requireLogin = true): array
     }
     $cats = DB::all('SELECT main_code, sub_code, main_name, sub_name FROM categories ORDER BY main_code, sub_code');
     $locs = DB::all('SELECT code, name, sort_order FROM locations ORDER BY sort_order, code');
+    // 兼容尚未执行 v3.0.1 升级的旧库（hygiene_levels 表可能不存在）
+    try {
+        $hyg = Hygiene::all();
+    } catch (\Throwable $e) {
+        $hyg = [];
+    }
     return [
         'logged_in' => Auth::logged(),
         'site_title' => (string)Settings::get('site_title', t('app.name')),
@@ -563,6 +622,7 @@ function public_status(bool $requireLogin = true): array
         'main_categories' => Serial::MAIN,
         'categories' => $cats,
         'locations' => $locs,
+        'hygiene_levels' => $hyg,
         'version' => PMD_VERSION,
         'has_pin' => Auth::hasPin(),
     ];
@@ -579,13 +639,13 @@ function build_template(string $type): array
         case 'purchase':
             return [
                 Templates::purchaseHeaderRow(),
-                ['NDZ001', '蓝牙键盘（示例）', '罗技', 'N', 'DZ', 'HOME', '个', 1, 1, 199, '示例行，请替换或删除'],
+                ['NDZ001', '蓝牙键盘（示例）', '罗技', 'N', 'DZ', 'HOME', '个', 1, 1, 199, '示例行，请替换或删除', 'A'],
             ];
         case 'items':
         default:
             return [
                 Templates::itemsHeaderRow(),
-                ['HBG001', 'A4复印纸（示例）', '得力', 'HOME', '', '', 25, 10, 5, '包', 80, '示例行，请替换或删除', 'H', 'BG', '6901234567890'],
+                ['HBG001', 'A4复印纸（示例）', '得力', 'HOME', '', '', 25, 10, 5, '包', 80, '示例行，请替换或删除', 'H', 'BG', '6901234567890', 'A'],
             ];
     }
 }

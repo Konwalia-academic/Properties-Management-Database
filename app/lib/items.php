@@ -10,6 +10,7 @@ class Items
         'serial_no', 'name', 'brand', 'location_code', 'new_location_code',
         'container_serial', 'purchase_price', 'quantity', 'quarterly_consumption',
         'unit', 'depreciation', 'notes', 'main_category', 'sub_category', 'barcode',
+        'hygiene_level',
     ];
 
     public const LOCATION_RE = '/^[A-Za-z]{2,4}$/';
@@ -37,6 +38,7 @@ class Items
             'unit'                  => clean_str($d['unit'] ?? ''),
             'notes'                 => clean_str($d['notes'] ?? ''),
             'barcode'               => clean_str($d['barcode'] ?? ''),
+            'hygiene_level'         => strtoupper(clean_str($d['hygiene_level'] ?? '')),
         ];
 
         foreach (['location_code', 'new_location_code'] as $k) {
@@ -55,6 +57,15 @@ class Items
             } elseif ($c['main_category'] !== 'R') {
                 $warnings[] = '所在容器序列号 ' . $data['container_serial'] . ' 的母类别不是 R（容器）';
             }
+        }
+
+        // 卫生等级：单个大写字母；未登记时自动加入方案（可空）
+        $hl = $data['hygiene_level'];
+        if ($hl !== '') {
+            if (!Hygiene::valid($hl)) {
+                throw new RuntimeException('卫生等级无效，应为单个大写字母（如 A/B/C/D）');
+            }
+            Hygiene::ensure($hl);
         }
 
         // 价格
@@ -138,14 +149,14 @@ class Items
             'INSERT INTO items
              (serial_no, name, brand, location_code, new_location_code, container_serial,
               purchase_price, quantity, quarterly_consumption, unit, depreciation,
-              notes, main_category, sub_category, barcode, last_modified)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+              notes, main_category, sub_category, barcode, hygiene_level, last_modified)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [
                 $serial, $data['name'], $data['brand'], $data['location_code'],
                 $data['new_location_code'], $data['container_serial'], $data['purchase_price'],
                 $data['quantity'], $data['quarterly_consumption'], $data['unit'],
                 $data['depreciation'], $data['notes'], $data['main_category'],
-                $data['sub_category'], $data['barcode'], DB::today(),
+                $data['sub_category'], $data['barcode'], $data['hygiene_level'], DB::today(),
             ]
         );
         return ['serial' => $serial, 'warnings' => $warnings];
@@ -205,14 +216,14 @@ class Items
                new_location_code = ?, container_serial = ?, purchase_price = ?,
                quantity = ?, quarterly_consumption = ?, unit = ?, depreciation = ?,
                notes = ?, main_category = ?, sub_category = ?, barcode = ?,
-               last_modified = ?
+               hygiene_level = ?, last_modified = ?
              WHERE serial_no = ?',
             [
                 $newSerial, $data['name'], $data['brand'], $data['location_code'],
                 $data['new_location_code'], $data['container_serial'], $data['purchase_price'],
                 $data['quantity'], $data['quarterly_consumption'], $data['unit'],
                 $data['depreciation'], $data['notes'], $data['main_category'],
-                $data['sub_category'], $data['barcode'], DB::today(), $serial,
+                $data['sub_category'], $data['barcode'], $data['hygiene_level'], DB::today(), $serial,
             ]
         );
 
@@ -235,9 +246,10 @@ class Items
     public static function find(string $serial): ?array
     {
         return DB::one(
-            'SELECT i.*, c.main_name, c.sub_name
+            'SELECT i.*, c.main_name, c.sub_name, h.name AS hygiene_name
              FROM items i
              LEFT JOIN categories c ON c.main_code = i.main_category AND c.sub_code = i.sub_category
+             LEFT JOIN hygiene_levels h ON h.code = i.hygiene_level
              WHERE i.serial_no = ?',
             [$serial]
         );
@@ -315,9 +327,10 @@ class Items
         $offset = ($page - 1) * $pageSize;
 
         $rows = DB::all(
-            "SELECT i.*, c.main_name, c.sub_name
+            "SELECT i.*, c.main_name, c.sub_name, h.name AS hygiene_name
              FROM items i
              LEFT JOIN categories c ON c.main_code = i.main_category AND c.sub_code = i.sub_category
+             LEFT JOIN hygiene_levels h ON h.code = i.hygiene_level
              $whereSql ORDER BY $sort $order, i.serial_no ASC LIMIT $pageSize OFFSET $offset",
             $params
         );

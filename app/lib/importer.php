@@ -19,6 +19,7 @@ class Importer
         $out = [];
         $inserted = $duplicates = $invalid = 0;
         $autoCats = [];
+        $autoHygiene = [];
         foreach ($rows as $i => $r) {
             $rowNo = $i + 2; // 表头占第 1 行
             $serial = strtoupper(clean_str($r['serial_no'] ?? ''));
@@ -80,6 +81,15 @@ class Importer
             if ($cs !== '' && preg_match('/^[A-Z]{3}[0-9]{3}$/', $cs) !== 1) {
                 $errors[] = t('val.containerInvalid');
             }
+            $hl = strtoupper(clean_str($r['hygiene_level'] ?? ''));
+            if ($hl !== '') {
+                if (preg_match('/^[A-Z]$/', $hl) !== 1) {
+                    $errors[] = '卫生等级无效，应为单个大写字母（如 A/B/C/D）';
+                } elseif (!Hygiene::exists($hl)) {
+                    Hygiene::ensure($hl);
+                    $autoHygiene[$hl] = ['code' => $hl, 'name' => Hygiene::DEFAULTS[$hl] ?? $hl];
+                }
+            }
 
             $isDup = false;
             if ($serial !== '' && !$errors) {
@@ -112,7 +122,7 @@ class Importer
                 'data' => $r,
             ];
         }
-        return ['rows' => $out, 'inserted' => $inserted, 'duplicates' => $duplicates, 'invalid' => $invalid, 'auto_categories' => array_values($autoCats)];
+        return ['rows' => $out, 'inserted' => $inserted, 'duplicates' => $duplicates, 'invalid' => $invalid, 'auto_categories' => array_values($autoCats), 'auto_hygiene' => array_values($autoHygiene)];
     }
 
     /**
@@ -401,6 +411,7 @@ class Importer
         $out = [];
         $valid = 0;
         $autoCats = [];
+        $autoHygiene = [];
         foreach ($rows as $i => $r) {
             $rowNo = $i + 2;
             $serial = strtoupper(clean_str($r['serial_no'] ?? ''));
@@ -443,6 +454,17 @@ class Importer
                 $errors[] = tf('purchase.purchaseQtyInvalid', ['serial' => $serial !== '' ? $serial : ('第' . $rowNo . '行')]);
             }
 
+            // 卫生等级：仅新增物品应用；未登记时自动加入方案
+            $hl = strtoupper(clean_str($r['hygiene_level'] ?? ''));
+            if ($hl !== '' && $isNew) {
+                if (preg_match('/^[A-Z]$/', $hl) !== 1) {
+                    $errors[] = '卫生等级无效，应为单个大写字母（如 A/B/C/D）';
+                } elseif (!Hygiene::exists($hl)) {
+                    Hygiene::ensure($hl);
+                    $autoHygiene[$hl] = ['code' => $hl, 'name' => Hygiene::DEFAULTS[$hl] ?? $hl];
+                }
+            }
+
             if (!$errors && $isNew) {
                 try {
                     $serial = Serial::next($main, $sub);
@@ -468,10 +490,11 @@ class Importer
                 'purchase_qty' => (int)$qty,
                 'purchase_price' => clean_str($r['purchase_price'] ?? ''),
                 'notes' => clean_str($r['notes'] ?? ''),
+                'hygiene_level' => $hl,
                 'errors' => $errors,
             ];
         }
-        return ['rows' => $out, 'valid' => $valid, 'auto_categories' => array_values($autoCats)];
+        return ['rows' => $out, 'valid' => $valid, 'auto_categories' => array_values($autoCats), 'auto_hygiene' => array_values($autoHygiene)];
     }
 
     /** 应用采购：已有物品余量+=采购数量、折旧=100；新增物品入库 */
@@ -497,6 +520,7 @@ class Importer
                         'notes' => $p['notes'] ? ('采购入库：' . $p['notes']) : '采购入库',
                         'main_category' => $p['main_category'],
                         'sub_category' => $p['sub_category'],
+                        'hygiene_level' => $p['hygiene_level'] ?? '',
                     ]);
                     $inserted++;
                 } else {

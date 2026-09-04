@@ -71,6 +71,7 @@ return [
     'field.mainCat'     => '物品母类别',
     'field.subCat'      => '物品子类别',
     'field.barcode'     => '商品条形码',
+    'field.hygiene'     => '卫生等级',
     'field.modified'    => '最新修改日期',
     'field.created'     => '创建时间',
     'field.borrower'    => '借用人',
@@ -124,6 +125,7 @@ return [
     'add.importResult'  => '导入完成：新增 {inserted} 条，更新 {updated} 条，跳过 {skipped} 条',
     'add.importErrors'  => '以下行存在问题：',
     'add.autoCatNotice' => '已自动创建类别组合 {n} 组（可在 设置→类别代码管理 中修改名称）：{list}',
+    'add.autoHygieneNotice' => '已自动创建卫生等级 {n} 个（可在 设置→卫生等级管理 中修改名称）：{list}',
     'add.downloadTemplate' => '下载导入模板',
     'add.templateItems' => '物品导入模板',
     'add.templateExchange' => '交换作业单模板',
@@ -236,6 +238,12 @@ return [
     'settings.duplicate'   => '该组合已存在',
     'settings.ltoProtected'=> 'LTO 为系统保留位置，不能删除或改名',
     'settings.saved'       => '设置已保存',
+    'settings.hygiene'     => '卫生等级管理',
+    'settings.hygieneHint' => '卫生等级为单个大写字母（预置 A/B/C/D 或自定义）；导入遇到未登记的等级时会自动创建。删除等级不影响已引用该等级的物品（名称将显示为等级代码）。',
+    'settings.addHygiene'  => '新增卫生等级',
+    'settings.hygieneCode' => '等级代码',
+    'settings.hygieneName' => '等级名称',
+    'settings.hygieneDelete' => '确定删除卫生等级 {code}（{name}）吗？',
 
     // ---- 校验 ----
     'val.serialFormat'   => '序列号格式错误（应为 3 位字母 + 3 位数字，如 NDZ121）',

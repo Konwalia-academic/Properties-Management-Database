@@ -151,7 +151,7 @@ hr{margin:24px 0;border:0;border-top:1px solid #e2e8f0}
 <body>
 <div class="card">
   <h1>PMD 个人物品管理数据库 · 安装向导</h1>
-  <div class="sub">版本 1.2.1 · 安装前请确认 MySQL 已就绪，且已创建数据库（或当前账号具备建库权限）</div>
+  <div class="sub">版本 3.0.1 · 安装前请确认 MySQL 已就绪，且已创建数据库（或当前账号具备建库权限）</div>
 
   <h2 style="font-size:16px;margin-bottom:8px">环境检查</h2>
   <table>

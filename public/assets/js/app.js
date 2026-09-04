@@ -149,6 +149,22 @@ function catName(main, sub) {
   return c ? c.sub_name : sub;
 }
 
+function hygieneName(code) {
+  if (!code) return '';
+  const h = (S.status.hygiene_levels || []).find(x => x.code === code);
+  return h ? h.name : '';
+}
+
+function hygieneSelect(attrs, selected) {
+  const opts = [el('option', { value: '' }, t('common.select'))]
+    .concat((S.status.hygiene_levels || []).map(h =>
+      el('option', { value: h.code, selected: h.code === selected }, `${h.code} ${h.name}`)));
+  if (selected && !(S.status.hygiene_levels || []).some(h => h.code === selected)) {
+    opts.push(el('option', { value: selected, selected: true }, `${selected}（自定义）`));
+  }
+  return el('select', attrs, opts);
+}
+
 function depBadge(v) {
   v = +v;
   const cls = v < 20 ? 'dep-lo' : (v < 60 ? 'dep-mid' : 'dep-hi');
@@ -359,7 +375,7 @@ function renderItemsTable() {
     el('th', { class: 'num' }, t('field.price')), el('th', { class: 'num' }, t('field.quantity')),
     el('th', { class: 'num' }, t('field.quarterly')), el('th', {}, t('field.unit')),
     el('th', {}, t('field.depreciation')), el('th', {}, t('field.mainCat') + '/' + t('field.subCat')),
-    el('th', {}, t('field.modified')), el('th', {}, t('common.actions')),
+    el('th', {}, t('field.hygiene')), el('th', {}, t('field.modified')), el('th', {}, t('common.actions')),
   ];
   const thead = el('thead', {}, el('tr', {}, headCells));
 
@@ -382,6 +398,7 @@ function renderItemsTable() {
       el('td', {}, r.unit || '—'),
       el('td', {}, depBadge(r.depreciation)),
       el('td', {}, el('span', { class: 'badge main' }, r.main_category), ' ', el('span', { class: 'badge sub' }, r.sub_category + ' ' + (r.sub_name || ''))),
+      el('td', {}, r.hygiene_level ? el('span', { class: 'badge hy' }, r.hygiene_level + ' ' + (r.hygiene_name || '')) : '—'),
       el('td', { class: 'nowrap' }, r.last_modified),
       el('td', { class: 'nowrap' },
         btn(t('common.edit'), 'ghost sm', () => editItemModal(r.serial_no)),
@@ -457,6 +474,7 @@ function itemFormFields(data, { serialReadonly = false, showSerial = true } = {}
     el('div', {}, el('label', { class: 'f' }, t('field.unit')), el('input', { id: 'fUnit', type: 'text', value: d.unit || '' })),
     el('div', {}, el('label', { class: 'f' }, t('field.depreciation')), el('input', { id: 'fDep', type: 'number', min: '0', max: '100', step: '1', value: d.depreciation ?? 100 })),
     el('div', {}, el('label', { class: 'f' }, t('field.barcode')), el('input', { id: 'fBarcode', type: 'text', value: d.barcode || '' })),
+    el('div', {}, el('label', { class: 'f' }, t('field.hygiene')), hygieneSelect({ id: 'fHyg' }, d.hygiene_level || '')),
     el('div', { class: 'wide' }, el('label', { class: 'f' }, t('field.notes')), el('textarea', { id: 'fNotes' }, d.notes || '')),
   );
   const collect = () => ({
@@ -474,6 +492,7 @@ function itemFormFields(data, { serialReadonly = false, showSerial = true } = {}
     unit: $('#fUnit').value.trim(),
     depreciation: $('#fDep').value,
     barcode: $('#fBarcode').value.trim(),
+    hygiene_level: $('#fHyg').value,
     notes: $('#fNotes').value,
   });
   return { f, collect };
@@ -522,7 +541,7 @@ function batchEditModal() {
     ['quantity', t('field.quantity')], ['quarterly_consumption', t('field.quarterly')],
     ['purchase_price', t('field.price')], ['depreciation', t('field.depreciation')],
     ['container_serial', t('field.container')], ['unit', t('field.unit')],
-    ['barcode', t('field.barcode')], ['notes', t('field.notes')],
+    ['barcode', t('field.barcode')], ['hygiene_level', t('field.hygiene')], ['notes', t('field.notes')],
     ['main_category', t('field.mainCat')], ['sub_category', t('field.subCat')],
   ].map(([v, label]) => el('option', { value: v }, label)));
   const valueWrap = el('div', {});
@@ -580,6 +599,9 @@ function batchEditModal() {
     } else if (field === 'purchase_price') {
       valueWrap.appendChild(label);
       valueWrap.appendChild(el('input', { id: 'beVal', type: 'number', min: '0', step: '0.01', value: '0' }));
+    } else if (field === 'hygiene_level') {
+      valueWrap.appendChild(label);
+      valueWrap.appendChild(hygieneSelect({ id: 'beVal' }, ''));
     } else {
       valueWrap.appendChild(label);
       valueWrap.appendChild(el('input', { id: 'beVal', type: 'text', value: '' }));
@@ -609,10 +631,18 @@ async function scrapItem(r) {
 
 /* ---------------- 导入物品 ---------------- */
 function autoCatNotice(data) {
+  let html = '';
   const list = (data && data.auto_categories) || [];
-  if (!list.length) return '';
-  const names = list.map(c => `${c.main_code}-${c.sub_code}（${c.sub_name}）`).join('、');
-  return '<div class="alert ok mt">' + t('add.autoCatNotice').replace('{n}', list.length).replace('{list}', esc(names)) + '</div>';
+  if (list.length) {
+    const names = list.map(c => `${c.main_code}-${c.sub_code}（${c.sub_name}）`).join('、');
+    html += '<div class="alert ok mt">' + t('add.autoCatNotice').replace('{n}', list.length).replace('{list}', esc(names)) + '</div>';
+  }
+  const hy = (data && data.auto_hygiene) || [];
+  if (hy.length) {
+    const names = hy.map(c => `${c.code}（${c.name}）`).join('、');
+    html += '<div class="alert ok mt">' + t('add.autoHygieneNotice').replace('{n}', hy.length).replace('{list}', esc(names)) + '</div>';
+  }
+  return html;
 }
 
 function importItemsModal() {
@@ -759,6 +789,7 @@ function addSingleForm() {
     el('div', {}, el('label', { class: 'f' }, t('field.unit')), el('input', { id: 'aUnit', type: 'text' })),
     el('div', {}, el('label', { class: 'f' }, t('field.depreciation')), el('input', { id: 'aDep', type: 'number', min: '0', max: '100', value: '100' })),
     el('div', {}, el('label', { class: 'f' }, t('field.barcode')), el('input', { id: 'aBarcode', type: 'text' })),
+    el('div', {}, el('label', { class: 'f' }, t('field.hygiene')), hygieneSelect({ id: 'aHyg' }, '')),
     el('div', { class: 'wide' }, el('label', { class: 'f' }, t('field.notes')), el('textarea', { id: 'aNotes' })),
   );
   const errBox = el('div', {});
@@ -781,6 +812,7 @@ function addSingleForm() {
           unit: $('#aUnit').value.trim(),
           depreciation: $('#aDep').value,
           barcode: $('#aBarcode').value.trim(),
+          hygiene_level: $('#aHyg').value,
           notes: $('#aNotes').value.trim(),
         };
         const r = await api('items.create', data);
@@ -800,6 +832,7 @@ function addSingleForm() {
 function addBatchForm() {
   const { mainSel, subSel } = catSelects('', '');
   const locSel = locationSelect({ id: 'bLoc', withCustom: true }, '', true);
+  const hySel = hygieneSelect({ id: 'bHyg' }, '');
   const countSel = el('select', { id: 'bCount' }, [5, 10, 15, 20, 30, 50].map(n => el('option', { value: n }, n + ' 行')));
   const rowsBox = el('div', {}, el('div', { class: 'empty' }, '—'));
   const errBox = el('div', {});
@@ -836,6 +869,7 @@ function addBatchForm() {
       el('div', {}, el('label', { class: 'f' }, t('field.mainCat') + ' <span class="req">*</span>'), mainSel),
       el('div', {}, el('label', { class: 'f' }, t('field.subCat') + ' <span class="req">*</span>'), subSel),
       el('div', {}, el('label', { class: 'f' }, t('field.location') + ' <span class="req">*</span>'), locSel),
+      el('div', {}, el('label', { class: 'f' }, t('field.hygiene')), hySel),
       el('div', {}, el('label', { class: 'f' }, t('add.batchRows')), countSel),
     ),
     rowsBox,
@@ -862,7 +896,7 @@ function addBatchForm() {
       const fails = [];
       for (const r of rows) {
         try {
-          const res = await api('items.create', { ...r, main_category: main, sub_category: sub, location_code: loc, depreciation: 100, quantity: r.quantity });
+          const res = await api('items.create', { ...r, main_category: main, sub_category: sub, location_code: loc, depreciation: 100, quantity: r.quantity, hygiene_level: hySel.value });
           created.push(res.serial);
         } catch (e) { fails.push(r.name + ': ' + e.message); }
       }
@@ -1223,6 +1257,7 @@ function newCartRow(item) {
     quantity: item ? item.quantity : 0,
     purchase_qty: 1,
     purchase_price: item ? item.purchase_price : '',
+    hygiene_level: item ? (item.hygiene_level || '') : '',
     notes: '',
     is_new: !item,
   };
@@ -1298,6 +1333,7 @@ function renderCart() {
             el('input', { class: 'cName', type: 'text', placeholder: t('field.name'), value: c.name, style: 'width:160px' }),
             el('select', { class: 'cMain', style: 'width:110px' }, [el('option', { value: '' }, t('field.mainCat'))].concat(Object.entries(S.status.main_categories).map(([k, v]) => el('option', { value: k, selected: k === c.main_category }, `${k} ${v}`)))),
             el('select', { class: 'cSub', style: 'width:130px' }, [el('option', { value: '' }, t('field.subCat'))].concat((S.status.categories || []).filter(x => !c.main_category || x.main_code === c.main_category).map(x => el('option', { value: x.sub_code, selected: x.sub_code === c.sub_category }, `${x.sub_code} ${x.sub_name}`)))),
+            el('select', { class: 'cHyg', style: 'width:150px' }, [el('option', { value: '' }, t('field.hygiene'))].concat((S.status.hygiene_levels || []).map(x => el('option', { value: x.code, selected: x.code === c.hygiene_level }, `${x.code} ${x.name}`)))),
           ))
         : el('td', { colspan: '2' }, c.name),
       el('td', {}, c.brand || '—'),
@@ -1322,6 +1358,7 @@ function renderCart() {
     if (e.target.classList.contains('cName')) st.cart[idx].name = e.target.value;
     if (e.target.classList.contains('cMain')) { st.cart[idx].main_category = e.target.value; st.cart[idx].sub_category = ''; }
     if (e.target.classList.contains('cSub')) st.cart[idx].sub_category = e.target.value;
+    if (e.target.classList.contains('cHyg')) st.cart[idx].hygiene_level = e.target.value;
   };
 }
 
@@ -1549,17 +1586,19 @@ function renderBorrowHistory() {
 async function renderSettings() {
   const main = $('#main');
   const set = await api('settings.get', {}, { get: true });
-  const tab = location.hash.includes('tab=cats') ? 'cats' : (location.hash.includes('tab=locs') ? 'locs' : 'general');
+  const tab = location.hash.includes('tab=cats') ? 'cats' : (location.hash.includes('tab=locs') ? 'locs' : (location.hash.includes('tab=hyg') ? 'hyg' : 'general'));
   main.appendChild(el('div', { class: 'card' },
     el('h2', {}, t('settings.title')),
     el('div', { class: 'tabs' },
       btn(t('settings.general'), tab === 'general' ? '' : 'ghost', () => { location.hash = '#/settings'; }),
       btn(t('settings.categories'), tab === 'cats' ? '' : 'ghost', () => { location.hash = '#/settings?tab=cats'; }),
       btn(t('settings.locations'), tab === 'locs' ? '' : 'ghost', () => { location.hash = '#/settings?tab=locs'; }),
+      btn(t('settings.hygiene'), tab === 'hyg' ? '' : 'ghost', () => { location.hash = '#/settings?tab=hyg'; }),
     )
   ));
   if (tab === 'cats') renderSettingsCats(main);
   else if (tab === 'locs') renderSettingsLocs(main);
+  else if (tab === 'hyg') renderSettingsHygiene(main);
   else renderSettingsGeneral(main, set);
 }
 
@@ -1744,6 +1783,64 @@ async function renderSettingsLocs(main) {
           toast(t('common.success'));
           S.status.locations = await api('locations.list', {}, { get: true });
           renderSettingsLocs(main);
+        } catch (e) { toast(e.message, 'err'); }
+      })
+    )
+  );
+  main.appendChild(card);
+}
+
+async function renderSettingsHygiene(main) {
+  const levels = await api('hygiene.list', {}, { get: true });
+  const tbody = el('tbody', {});
+  for (const l of levels) {
+    const nameInput = el('input', { type: 'text', value: l.name, style: 'width:220px' });
+    const orderInput = el('input', { type: 'number', value: l.sort_order, style: 'width:60px' });
+    const tr = el('tr', {},
+      el('td', { class: 'mono' }, l.code),
+      el('td', {}, nameInput),
+      el('td', {}, orderInput),
+      el('td', {},
+        btn(t('common.save'), 'ghost sm', async () => {
+          try {
+            await api('hygiene.update', { code: l.code, name: nameInput.value.trim(), sort_order: orderInput.value });
+            toast(t('settings.saved'));
+            renderSettingsHygiene(main);
+          } catch (e) { toast(e.message, 'err'); }
+        }),
+        ' ',
+        btn(t('common.delete'), 'danger-ghost sm', async () => {
+          if (!await confirmDlg(t('settings.hygieneDelete').replace('{code}', l.code).replace('{name}', l.name), t('common.delete'))) return;
+          try {
+            await api('hygiene.delete', { code: l.code });
+            toast(t('common.success'));
+            S.status.hygiene_levels = await api('hygiene.list', {}, { get: true });
+            renderSettingsHygiene(main);
+          } catch (e) { toast(e.message, 'err'); }
+        })
+      ),
+    );
+    tbody.appendChild(tr);
+  }
+  const codeIn = el('input', { id: 'nhCode', type: 'text', maxlength: '1', placeholder: '如 E', style: 'width:60px;text-transform:uppercase' });
+  const nameIn = el('input', { id: 'nhName', type: 'text', placeholder: t('settings.hygieneName'), style: 'width:200px' });
+  const orderIn = el('input', { id: 'nhOrder', type: 'number', value: '0', style: 'width:60px' });
+  const card = el('div', { class: 'card' },
+    el('h2', {}, t('settings.hygiene')),
+    el('div', { class: 'desc' }, t('settings.hygieneHint')),
+    el('div', { class: 'table-wrap' },
+      el('table', { class: 'pmd-table', style: 'min-width:560px' },
+        el('thead', {}, el('tr', {}, [t('settings.hygieneCode'), t('settings.hygieneName'), '排序', t('common.actions')].map(h => el('th', {}, h)))),
+        tbody)
+    ),
+    el('div', { class: 'row mt' },
+      el('label', { class: 'f', style: 'margin:0' }, t('settings.addHygiene') + '：'), codeIn, nameIn, orderIn,
+      btn(t('common.save'), 'sm', async () => {
+        try {
+          await api('hygiene.create', { code: codeIn.value.trim().toUpperCase(), name: nameIn.value.trim(), sort_order: orderIn.value });
+          toast(t('common.success'));
+          S.status.hygiene_levels = await api('hygiene.list', {}, { get: true });
+          renderSettingsHygiene(main);
         } catch (e) { toast(e.message, 'err'); }
       })
     )

@@ -11,9 +11,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, 'templates')
 
 ITEMS_HEADERS = ['序列号','物品名称','品牌','目前所在位置代码','新所在位置代码','所在容器序列号',
-                 '购入价格','余量','季度消耗量','单位','仓储/折旧情况(%)','备注','物品母类别','物品子类别','商品条形码']
+                 '购入价格','余量','季度消耗量','单位','仓储/折旧情况(%)','备注','物品母类别','物品子类别','商品条形码','卫生等级']
 EXCHANGE_HEADERS = ['序列号','物品名称','目前所在位置代码','新所在位置代码','备注']
-PURCHASE_HEADERS = ['序列号','物品名称','品牌','物品母类别','物品子类别','目前所在位置代码','单位','当前余量','采购数量','购入价格','备注']
+PURCHASE_HEADERS = ['序列号','物品名称','品牌','物品母类别','物品子类别','目前所在位置代码','单位','当前余量','采购数量','购入价格','备注','卫生等级']
 
 def xml_escape(s):
     return str(s).replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;')
@@ -133,11 +133,11 @@ def main():
     print('生成 PMD 模板文件…')
     build_xlsx(os.path.join(OUT, '物品导入模板_items_import_template.xlsx'), '物品导入', [
         ITEMS_HEADERS,
-        ['HBG001', 'A4复印纸（示例）', '得力', 'HOME', '', '', 25, 10, 5, '包', 80, '示例行，导入前请删除', 'H', 'BG', '6901234567890'],
+        ['HBG001', 'A4复印纸（示例）', '得力', 'HOME', '', '', 25, 10, 5, '包', 80, '示例行，导入前请删除', 'H', 'BG', '6901234567890', 'A'],
     ])
     write_csv(os.path.join(OUT, '物品导入模板_items_import_template.csv'), [
         ITEMS_HEADERS,
-        ['HBG001', 'A4复印纸（示例）', '得力', 'HOME', '', '', 25, 10, 5, '包', 80, '示例行，导入前请删除', 'H', 'BG', '6901234567890'],
+        ['HBG001', 'A4复印纸（示例）', '得力', 'HOME', '', '', 25, 10, 5, '包', 80, '示例行，导入前请删除', 'H', 'BG', '6901234567890', 'A'],
     ])
     build_xlsx(os.path.join(OUT, '物资交换作业单模板_exchange_worksheet_template.xlsx'), '物资交换作业单', [
         EXCHANGE_HEADERS,
@@ -145,7 +145,7 @@ def main():
     ])
     build_xlsx(os.path.join(OUT, '物资采购欲购清单模板_purchase_list_template.xlsx'), '物资采购欲购清单', [
         PURCHASE_HEADERS,
-        ['NDZ001', '蓝牙键盘（示例）', '罗技', 'N', 'DZ', 'HOME', '个', 1, 1, 199, '示例行，请替换或删除'],
+        ['NDZ001', '蓝牙键盘（示例）', '罗技', 'N', 'DZ', 'HOME', '个', 1, 1, 199, '示例行，请替换或删除', 'A'],
     ])
     print('完成。模板目录：' + OUT)
 

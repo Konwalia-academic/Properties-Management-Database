@@ -132,6 +132,7 @@ table.pmd-table { width: 100%; border-collapse: collapse; font-size: 13.5px; min
 .badge.dep-lo { background: var(--danger-soft); color: var(--danger); }
 .badge.lto { background: var(--danger-soft); color: var(--danger); }
 .badge.new { background: #ecfeff; color: #0e7490; }
+.badge.hy { background: #fefce8; color: #a16207; }
 
 /* ---------------- 登录 ---------------- */
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }

@@ -29,6 +29,7 @@ class Templates
         '物品母类别' => 'main_category',
         '物品子类别' => 'sub_category',
         '商品条形码' => 'barcode',
+        '卫生等级' => 'hygiene_level',
     ];
 
     public const EXCHANGE_HEADERS = [
@@ -51,6 +52,7 @@ class Templates
         '采购数量' => 'purchase_qty',
         '购入价格' => 'purchase_price',
         '备注' => 'notes',
+        '卫生等级' => 'hygiene_level',
     ];
 
     // 表头别名（兼容手工修改/英文表头）
@@ -71,6 +73,7 @@ class Templates
         'main_category' => ['物品母类别', 'main_category', '母类别'],
         'sub_category' => ['物品子类别', 'sub_category', '子类别'],
         'barcode' => ['商品条形码', 'barcode', '条形码'],
+        'hygiene_level' => ['卫生等级', 'hygiene_level', '卫生级别'],
     ];
 
     /**

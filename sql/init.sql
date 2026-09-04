@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS items (
   main_category       CHAR(1)      NOT NULL COMMENT '物品母类别',
   sub_category        CHAR(2)      NOT NULL COMMENT '物品子类别',
   barcode             VARCHAR(64)  NOT NULL DEFAULT '' COMMENT '商品条形码',
+  hygiene_level       CHAR(1)      NOT NULL DEFAULT '' COMMENT '卫生等级（A/B/C/D 或自定义，可空）',
   last_modified       DATE         NOT NULL COMMENT '最新修改日期（自动）',
   created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (id),
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS items (
   KEY idx_sub (sub_category),
   KEY idx_dep (depreciation),
   KEY idx_container (container_serial),
+  KEY idx_hygiene (hygiene_level),
   KEY idx_modified (last_modified)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物品';
 
@@ -90,6 +92,18 @@ CREATE TABLE IF NOT EXISTS settings (
   svalue TEXT COMMENT '设置值',
   PRIMARY KEY (skey)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统设置';
+
+-- ------------------------------------------------------------
+-- 卫生等级表
+-- 预置：A 食品接触 / B 母婴与敏感部位接触 / C 皮肤接触 / D 地面与脏污材料接触
+-- 可在 设置→卫生等级管理 中新增/改名/删除；导入遇到未登记等级时自动创建
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS hygiene_levels (
+  code       CHAR(1)     NOT NULL COMMENT '等级代码（1位字母）',
+  name       VARCHAR(100) NOT NULL DEFAULT '' COMMENT '等级名称',
+  sort_order INT NOT NULL DEFAULT 0 COMMENT '排序',
+  PRIMARY KEY (code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='卫生等级';
 
 -- ------------------------------------------------------------
 -- 默认类别数据（母类别×子类别组合）
@@ -178,6 +192,15 @@ INSERT IGNORE INTO locations (code, name, sort_order) VALUES
 ('SH','上海市其他',60),
 ('SY','沈阳市其他',70),
 ('WH','武汉市其他',80);
+
+-- ------------------------------------------------------------
+-- 默认卫生等级（可在 设置→卫生等级管理 中修改）
+-- ------------------------------------------------------------
+INSERT IGNORE INTO hygiene_levels (code, name, sort_order) VALUES
+('A','食品接触',10),
+('B','母婴与敏感部位接触',20),
+('C','皮肤接触',30),
+('D','地面与脏污材料接触',40);
 
 -- ------------------------------------------------------------
 -- 默认设置

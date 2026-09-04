@@ -16,31 +16,31 @@
 INSERT INTO items
   (serial_no, name, brand, location_code, new_location_code, container_serial,
    purchase_price, quantity, quarterly_consumption, unit, depreciation,
-   notes, main_category, sub_category, barcode, last_modified)
+   notes, main_category, sub_category, barcode, hygiene_level, last_modified)
 VALUES
   ('HBG001', 'A4复印纸', '得力', 'OFFC', '', '',
    25.00, 10, 5, '包', 80,
-   '行政采购', 'H', 'BG', '6901234567890', '2026-08-07');
+   '行政采购', 'H', 'BG', '6901234567890', 'A', '2026-08-07');
 
 -- 示例二：新增一件耐用品（电子设备，序列号自动生成示例：留空 serial_no）
 INSERT INTO items
   (serial_no, name, brand, location_code, new_location_code, container_serial,
    purchase_price, quantity, quarterly_consumption, unit, depreciation,
-   notes, main_category, sub_category, barcode, last_modified)
+   notes, main_category, sub_category, barcode, hygiene_level, last_modified)
 VALUES
   ('', '蓝牙键盘', '罗技', 'HOME', '', 'RSN001',
    199.00, 1, 0, '个', 100,
-   '', 'N', 'DZ', '6901234567891', '2026-08-07');
+   '', 'N', 'DZ', '6901234567891', 'C', '2026-08-07');
 
 -- 示例三：新增一个容器（收纳用品，R 前缀）
 INSERT INTO items
   (serial_no, name, brand, location_code, new_location_code, container_serial,
    purchase_price, quantity, quarterly_consumption, unit, depreciation,
-   notes, main_category, sub_category, barcode, last_modified)
+   notes, main_category, sub_category, barcode, hygiene_level, last_modified)
 VALUES
   ('RSN001', '透明收纳箱 60L', '禧天龙', 'HOME', '', '',
    59.90, 3, 0, '个', 90,
-   '客厅储物', 'R', 'SN', '', '2026-08-07');
+   '客厅储物', 'R', 'SN', '', 'D', '2026-08-07');
 
 -- ------------------------------------------------------------
 -- 复制以下区域作为你的导入模板（删除上面的示例后填写）
@@ -48,8 +48,8 @@ VALUES
 -- INSERT INTO items
 --   (serial_no, name, brand, location_code, new_location_code, container_serial,
 --    purchase_price, quantity, quarterly_consumption, unit, depreciation,
---    notes, main_category, sub_category, barcode, last_modified)
+--    notes, main_category, sub_category, barcode, hygiene_level, last_modified)
 -- VALUES
 --   ('', '', '', '', '', '',
 --    0, 0, 0, '', 100,
---    '', '', '', '', '');
+--    '', '', '', '', '', '');

@@ -9,7 +9,7 @@ define('PMD_APP', PMD_ROOT . '/app');
 define('PMD_PUBLIC', PMD_ROOT . '/public');
 define('PMD_STORAGE', PMD_APP . '/storage');
 define('PMD_LANG', PMD_APP . '/lang');
-define('PMD_VERSION', '1.2.1');
+define('PMD_VERSION', '3.0.1');
 
 // 目录检查（安装时创建）
 foreach ([PMD_STORAGE . '/tmp', PMD_STORAGE . '/logs', PMD_PUBLIC . '/uploads/logo'] as $d) {

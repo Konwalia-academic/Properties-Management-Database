@@ -1,0 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / real config (sample committed)
+.env
+app/config.php
+
+# Runtime storage
+app/storage/logs/*
+!app/storage/logs/.gitkeep
+app/storage/tmp/*
+!app/storage/tmp/.gitkeep
+public/uploads/*
+!public/uploads/logo/.gitkeep
+
+# Logs
+*.log
